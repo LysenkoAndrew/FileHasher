@@ -1,5 +1,27 @@
 #include "FileHashCounter.h"
 
+/// compute CRC32 (half-byte algoritm)
+uint32_t crc32_halfbyte(const void* data, size_t length, uint32_t previousCrc32)
+{
+    uint32_t crc = ~previousCrc32; // same as previousCrc32 ^ 0xFFFFFFFF
+    const uint8_t* current = (const uint8_t*)data;
+
+    /// look-up table for half-byte, same as crc32Lookup[0][16*i]
+    static const uint32_t Crc32Lookup16[16] =
+    {
+      0x00000000,0x1DB71064,0x3B6E20C8,0x26D930AC,0x76DC4190,0x6B6B51F4,0x4DB26158,0x5005713C,
+      0xEDB88320,0xF00F9344,0xD6D6A3E8,0xCB61B38C,0x9B64C2B0,0x86D3D2D4,0xA00AE278,0xBDBDF21C
+    };
+
+    while (length-- != 0)
+    {
+        crc = Crc32Lookup16[(crc ^ *current) & 0x0F] ^ (crc >> 4);
+        crc = Crc32Lookup16[(crc ^ (*current >> 4)) & 0x0F] ^ (crc >> 4);
+        current++;
+    }
+
+    return ~crc; // same as crc ^ 0xFFFFFFFF
+}
 
 CThreadFileHasher::CThreadFileHasher(const std::string& inputFilePath, const std::string& outputFilePath, ull blockSize)
     : m_nMaxThread(std::thread::hardware_concurrency()), m_nCurrThread(0), m_nextId(0), m_blockSize(blockSize),
@@ -32,8 +54,7 @@ void CThreadFileHasher::CalculateHashThread(int num_of_thread, ull len, ull id)
     {
         try
         {
-            std::hash<const char*> hash_fn;
-            auto crc = hash_fn(pBuf);
+            auto crc = crc32_halfbyte(pBuf, len, 0);
             WriteHash(id, crc);
             m_isDone[num_of_thread].store(true);
         }
@@ -66,7 +87,7 @@ void CThreadFileHasher::CalculateMultiThread(ull id, ull len)
                 }
                 m_isDone[m_nCurrThread].store(false);
                 m_buffers[m_nCurrThread] = std::move(ptr);
-                m_threads[m_nCurrThread] = std::thread(&CThreadFileHasher::CalculateHashThread, this, m_nCurrThread, m_blockSize, id);
+                m_threads[m_nCurrThread] = std::thread(&CThreadFileHasher::CalculateHashThread, this, m_nCurrThread, len, id);
                 break;
             }
         }
@@ -116,8 +137,7 @@ void CThreadFileHasher::CalculateCurrentThread(ull id, ull len)
         m_inFile.read(ptr.get(), len);
         if (const char* pBuf = ptr.get())
         {
-            std::hash<const char*> hash_fn;
-            auto crc = hash_fn(pBuf);
+            auto crc = crc32_halfbyte(pBuf, len, 0);
             WriteHash(id, crc);
         }
     }
