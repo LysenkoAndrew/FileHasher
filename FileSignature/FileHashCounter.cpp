@@ -24,7 +24,7 @@ uint32_t crc32_halfbyte(const void* data, size_t length, uint32_t previousCrc32)
 }
 
 CThreadFileHasher::CThreadFileHasher(const std::string& inputFilePath, const std::string& outputFilePath, ull blockSize)
-    : m_nMaxThread(std::thread::hardware_concurrency()), m_nCurrThread(0), m_nextId(0), m_blockSize(blockSize),
+    : m_nMaxThread(std::thread::hardware_concurrency()), m_nHashListCheckQuantity(m_nMaxThread * 2), m_nCurrThread(0), m_nextId(0), m_blockSize(blockSize),
     m_isDone(m_nMaxThread), m_buffers(m_nMaxThread), m_threads(m_nMaxThread)
 {
     for (auto& item : m_isDone)
@@ -111,9 +111,14 @@ void CThreadFileHasher::WriteHash(ull id, ull hash)
     {
         m_HashList.emplace_back(id, hash);
 
-        // Check first 10 values in list
-        int i = 0;
-        for (auto ptr = m_HashList.cbegin(); ptr != m_HashList.cend() && i < 10; ++i)
+        if (m_HashList.size() > m_nHashListCheckQuantity)
+        {
+            m_HashList.sort();
+        }
+
+        // Check first N values in list
+        unsigned i = 0;
+        for (auto ptr = m_HashList.cbegin(); ptr != m_HashList.cend() && i < m_nHashListCheckQuantity; ++i)
         {
             if (ptr->first == m_nextId)
             {

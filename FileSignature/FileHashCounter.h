@@ -22,6 +22,7 @@ public:
     std::string GetLastError() const { return m_LastErrorStr; }
 private:
     const unsigned m_nMaxThread;
+    const unsigned m_nHashListCheckQuantity;
     unsigned m_nCurrThread;
     std::vector<std::atomic_bool> m_isDone;
     std::vector<std::unique_ptr<char[]>> m_buffers;
