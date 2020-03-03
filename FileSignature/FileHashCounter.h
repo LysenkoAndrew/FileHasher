@@ -40,6 +40,6 @@ private:
     void CalculateMultiThread(ull id, ull len);
     void WriteHash(ull id, ull hash);
 
-    // Function for testing
+    // Function for testing hash
     void CalculateCurrentThread(ull id, ull len);  
 };
